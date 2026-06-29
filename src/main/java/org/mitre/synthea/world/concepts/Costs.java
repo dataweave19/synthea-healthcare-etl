@@ -152,7 +152,8 @@ public class Costs {
     }
 
     if (entry.codes.isEmpty()) {
-      return 0.0;
+      // No specific code found — use default cost for this entry type
+      return (defaultCost * locationAdjustment);
     }
     String code = entry.codes.get(0).code;
     // Retrieve the base cost based on the code.
