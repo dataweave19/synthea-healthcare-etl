@@ -1,9 +1,10 @@
-pandas
-duckdb
-sqlalchemy
-psycopg2-binary
+streamlit>=1.40
+pandas>=2.0
+plotly>=5.20
+numpy
 scikit-learn
 xgboost
 shap
-joblib
-numpy
+duckdb
+sqlalchemy
+psycopg2-binary
