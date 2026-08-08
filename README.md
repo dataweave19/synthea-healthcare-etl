@@ -1,126 +1,115 @@
-# Synthea<sup>TM</sup> Patient Generator ![Build Status](https://github.com/synthetichealth/synthea/workflows/.github/workflows/ci-build-test.yml/badge.svg?branch=master) [![codecov](https://codecov.io/gh/synthetichealth/synthea/branch/master/graph/badge.svg)](https://codecov.io/gh/synthetichealth/synthea)
+# Hospital Readmission Risk & Ops Intelligence Platform
 
-Synthea<sup>TM</sup> is a Synthetic Patient Population Simulator. The goal is to output synthetic, realistic (but not real), patient data and associated health records in a variety of formats.
+Predicting 30-day patient readmission risk from hospital encounter data, with a
+focus on the parts most portfolio projects skip: demographic bias auditing,
+data governance documentation, and a path to production (RAG assistant + AWS
+deployment).
 
-Read our [wiki](https://github.com/synthetichealth/synthea/wiki) and [Frequently Asked Questions](https://github.com/synthetichealth/synthea/wiki/Frequently-Asked-Questions) for more information.
+Built on synthetic patient data — no real patient information is used anywhere
+in this project.
 
-Currently, Synthea<sup>TM</sup> features include:
-- Birth to Death Lifecycle
-- Configuration-based statistics and demographics (defaults with Massachusetts Census data)
-- Modular Rule System
-  - Drop in [Generic Modules](https://github.com/synthetichealth/synthea/wiki/Generic-Module-Framework)
-  - Custom Java rules modules for additional capabilities
-- Primary Care Encounters, Emergency Room Encounters, and Symptom-Driven Encounters
-- Conditions, Allergies, Medications, Vaccinations, Observations/Vitals, Labs, Procedures, CarePlans
-- Formats
-  - HL7 FHIR (R4, STU3 v3.0.1, and DSTU2 v1.0.2)
-  - Bulk FHIR in ndjson format (set `exporter.fhir.bulk_data = true` to activate)
-  - C-CDA (set `exporter.ccda.export = true` to activate)
-  - CSV (set `exporter.csv.export = true` to activate)
-  - CPCDS (set `exporter.cpcds.export = true` to activate)
-- Rendering Rules and Disease Modules with Graphviz
+## Problem
 
-## Developer Quick Start
+Unplanned 30-day readmissions are one of the most closely watched quality and
+cost metrics in healthcare — <cite index="46-1">HCUP estimates unplanned 30-day readmissions cost the United States $41.3 billion, with roughly 18% of Medicare patients readmitted within 30 days of discharge</cite>. Hospitals that can flag high-risk patients *before* discharge can target
+follow-up care and avoid both the human and financial cost of a preventable
+readmission.
 
-These instructions are intended for those wishing to examine the Synthea source code, extend it or build the code locally. Those just wishing to run Synthea should follow the [Basic Setup and Running](https://github.com/synthetichealth/synthea/wiki/Basic-Setup-and-Running) instructions instead.
+This project builds that flagging system end-to-end: from raw hospital data to
+a risk model to (eventually) a deployed, explainable API a care team could
+actually use.
 
-### Installation
+## Data
 
-**System Requirements:**
-Synthea<sup>TM</sup> requires Java JDK 17 or newer. We strongly recommend using a Long-Term Support (LTS) release of Java, 17 or 25, as issues may occur with more recent non-LTS versions.
+Synthetic patient data generated with [Synthea](https://github.com/synthetichealth/synthea)
+(MITRE, Apache-2.0) — realistic but entirely fake patient histories, so there
+are zero privacy or compliance restrictions on this dataset. See `NOTICE` for
+attribution.
 
-To clone the Synthea<sup>TM</sup> repo, then build and run the test suite:
+Current dataset: 556 patients, ~28,700 encounters, spanning conditions,
+medications, procedures, observations, and claims.
+
+| Table | Rows | Description |
+|---|---|---|
+| `patients.csv` | 556 | demographics |
+| `encounters.csv` | 28,665 | all visits (wellness, ambulatory, emergency, inpatient, etc.) |
+| `conditions.csv` | 18,658 | diagnoses |
+| `medications.csv` | 18,703 | prescriptions |
+| `observations.csv` | 341,265 | vitals and labs |
+| `procedures.csv` | — | procedures performed |
+| `claims.csv`, `payers.csv` | — | billing/insurance data |
+
+## Architecture
+
 ```
-git clone https://github.com/synthetichealth/synthea.git
-cd synthea
-./gradlew build check test
-```
-
-### Changing the default properties
-
-
-The default properties file values can be found at `src/main/resources/synthea.properties`.
-By default, synthea does not generate CCDA, CPCDA, CSV, or Bulk FHIR (ndjson). You'll need to
-adjust this file to activate these features.  See the [wiki](https://github.com/synthetichealth/synthea/wiki)
-for more details, or use our [guided customizer tool](https://synthetichealth.github.io/spt/#/customizer).
-
-
-
-### Generate Synthetic Patients
-Generating the population one at a time...
-```
-./run_synthea
-```
-
-Command-line arguments may be provided to specify a state, city, population size, or seed for randomization.
-```
-run_synthea [-s seed] [-p populationSize] [state [city]]
-```
-
-Full usage info can be printed by passing the `-h` option.
-```
-$ ./run_synthea -h
-
-> Task :run
-Usage: run_synthea [options] [state [city]]
-Options: [-s seed]
-         [-cs clinicianSeed]
-         [-p populationSize]
-         [-r referenceDate as YYYYMMDD]
-         [-g gender]
-         [-a minAge-maxAge]
-         [-o overflowPopulation]
-         [-c localConfigFilePath]
-         [-d localModulesDirPath]
-         [-i initialPopulationSnapshotPath]
-         [-u updatedPopulationSnapshotPath]
-         [-t updateTimePeriodInDays]
-         [-f fixedRecordPath]
-         [-k keepMatchingPatientsPath]
-         [--config*=value]
-          * any setting from src/main/resources/synthea.properties
-
-Examples:
-run_synthea Massachusetts
-run_synthea Alaska Juneau
-run_synthea -s 12345
-run_synthea -p 1000
-run_synthea -s 987 Washington Seattle
-run_synthea -s 21 -p 100 Utah "Salt Lake City"
-run_synthea -g M -a 60-65
-run_synthea -p 10 --exporter.fhir.export=true
-run_synthea --exporter.baseDirectory="./output_tx/" Texas
+data/synthea (raw CSVs)
+        │
+        ▼
+   etl/build_readmission_dataset.py   (DuckDB — encounter-level joins + labeling)
+        │
+        ▼
+data/processed/readmission_dataset.csv
+        │
+        ├──► notebooks/  (EDA)
+        │
+        └──► ml/          (model training + SHAP explainability + bias audit)
+                │
+                ▼
+        [ planned ] API + Streamlit dashboard
+        [ planned ] RAG clinical assistant (Bedrock + OpenSearch/pgvector)
+        [ planned ] AWS deployment (Glue, SageMaker, Bedrock)
 ```
 
-Some settings can be changed in `./src/main/resources/synthea.properties`.
+sql/schema.sql defines the full Postgres schema if you want to load the data
+into a real database rather than querying the CSVs directly (etl/load_to_postgres.py
+handles the load).
 
-Synthea<sup>TM</sup> will output patient records in C-CDA and FHIR formats in `./output`.
+## Results
 
-### Synthea<sup>TM</sup> GraphViz
-Generate graphical visualizations of Synthea<sup>TM</sup> rules and modules.
+*(to be filled in once the baseline model is trained — see `ml/`)*
+
+Current label distribution: **8.3% of inpatient/emergency encounters** result
+in another inpatient/emergency admission within 30 days (122 of 1,476
+qualifying encounters) — consistent with published readmission rates, which
+<cite index="48-1">typically run around 20% within 28-31 days across studies of medical-condition patients</cite>, though this synthetic cohort skews lower.
+
+## How to run it
+
+```bash
+git clone https://github.com/dataweave19/synthea-healthcare-etl.git
+cd synthea-healthcare-etl
+pip install -r requirements.txt
+
+# Build the model-ready dataset (no database required, runs on DuckDB in-memory)
+python etl/build_readmission_dataset.py --data-dir data/synthea --out data/processed/readmission_dataset.csv
 ```
-./gradlew graphviz
+
+To load into Postgres instead of querying CSVs directly:
+
+```bash
+psql $DATABASE_URL -f sql/schema.sql
+python etl/load_to_postgres.py --data-dir data/synthea
 ```
 
-### Concepts and Attributes
-Generate a list of concepts (used in the records) or attributes (variables on each patient).
-```
-./gradlew concepts
-./gradlew attributes
-```
+## Responsible AI / governance
 
-# License
+Even on synthetic data, this project follows the practices a real clinical
+deployment would require:
+- **Bias audit** across race, gender, and age groups on model error rates (see `ml/evaluate.py`)
+- **Explainability** via SHAP on every prediction, not just aggregate accuracy
+- **Model card** documenting intended use and limitations (see `MODEL_CARD.md`)
+- **Data governance plan** for what a real deployment would need — access control, audit logging, encryption (see `DATA_GOVERNANCE.md`)
 
-Copyright 2017-2025 The MITRE Corporation
+## Roadmap
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+- [x] ETL pipeline: raw Synthea CSVs → model-ready encounter-level dataset
+- [ ] Baseline model (logistic regression) + XGBoost, with SHAP explainability
+- [ ] Bias/fairness audit across demographic groups
+- [ ] Streamlit dashboard for readmission risk + hospital ops view
+- [ ] RAG clinical assistant over synthetic clinical notes / protocol documents
+- [ ] AWS deployment (S3, Glue, SageMaker, Bedrock)
 
-    http://www.apache.org/licenses/LICENSE-2.0
+## Attribution
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+Patient data generated using [Synthea](https://github.com/synthetichealth/synthea),
+© The MITRE Corporation, licensed under Apache-2.0. See `NOTICE`.
