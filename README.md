@@ -9,9 +9,7 @@ Synthea Data
      ↓
 ETL & Feature Engineering
      ↓
-Readmission Prediction
-     ↓
-ML Models
+Machine Learning
      ↓
 SHAP Explainability
      ↓
@@ -27,16 +25,16 @@ Streamlit Dashboard
 | Logistic Regression |     0.783 |     0.238 |
 | XGBoost             | **0.826** | **0.333** |
 
-**Dataset:** 1,476 encounters
-**30-day readmissions:** 122
-**Readmission rate:** 8.3%
+* **Encounters:** 1,476
+* **30-day readmissions:** 122
+* **Readmission rate:** 8.3%
 
 ## 🔍 Features
 
 * Healthcare data ETL
 * Feature engineering
 * Logistic Regression & XGBoost
-* SHAP-based explainability
+* SHAP explainability
 * Fairness analysis by gender, race, and age
 * Interactive data explorer
 * Streamlit dashboard
@@ -45,15 +43,16 @@ Streamlit Dashboard
 
 **Python · Pandas · DuckDB · Scikit-learn · XGBoost · SHAP · Plotly · Streamlit · GitHub**
 
-## 🚀 Run Dashboard
+## 🚀 Dashboard
+
+**Live Dashboard:**
+https://synthea-healthcare-etl-wzcdvzdvczf6mvou97hwre.streamlit.app/
+
+## ▶️ Run Locally
 
 ```bash
 pip install -r requirements.txt
 streamlit run dashboard/app.py
 ```
-
-## ☁️ Deployment
-
-The dashboard is deployed using **Streamlit Community Cloud**.
 
 > **Note:** This project uses synthetic Synthea data for research and educational purposes only and is not intended for clinical decision-making.
