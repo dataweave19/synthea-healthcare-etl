@@ -1,0 +1,9 @@
+pandas
+duckdb
+sqlalchemy
+psycopg2-binary
+scikit-learn
+xgboost
+shap
+joblib
+numpy
