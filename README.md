@@ -46,7 +46,7 @@ Streamlit Dashboard
 ## 🚀 Dashboard
 
 **Live Dashboard:**
-https://synthea-healthcare-etl-wzcdvzdvczf6mvou97hwre.streamlit.app/
+[https://synthea-healthcare-etl-wzcdvzdvczf6mvou97hwre.streamlit.app/](https://synthea-healthcare-etl-4iiihvkvcwrecvzmmnkp6x.streamlit.app/)
 
 ## ▶️ Run Locally
 
